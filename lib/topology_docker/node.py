@@ -103,7 +103,7 @@ class DockerNode(CommonNode):
         self._command = command
         self._hostname = hostname
         self._environment = environment
-        self._client = Client(version='auto')
+        self._client = Client(version='auto', timeout=1)
 
         # Autopull docker image if necessary
         self._autopull()
