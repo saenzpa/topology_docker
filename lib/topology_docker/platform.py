@@ -23,6 +23,7 @@ from __future__ import unicode_literals, absolute_import
 from __future__ import print_function, division
 
 import logging
+import subprocess
 from traceback import format_exc
 from collections import OrderedDict
 from subprocess import check_output
@@ -55,6 +56,7 @@ class DockerPlatform(BasePlatform):
         self.nmlbiport_iface_map = OrderedDict()
         self.nmlbilink_nmlbiports_map = OrderedDict()
         self.available_node_types = self.node_loader.load_nodes()
+        self.bridges = {}
 
         # Create netns folder
         privileged_cmd('mkdir -p /var/run/netns')
@@ -143,16 +145,45 @@ class DockerPlatform(BasePlatform):
 
         # Determine temporal interfaces names
         tmp_iface_a = tmp_iface()
+        tmp_iface_a_br = tmp_iface()
         tmp_iface_b = tmp_iface()
+        tmp_iface_b_br = tmp_iface()
 
         # Determine final interface names
         iface_a = self.nmlbiport_iface_map[port_a.identifier]['iface']
         iface_b = self.nmlbiport_iface_map[port_b.identifier]['iface']
 
+        # Create bridge name
+        bridge_name = 'brf{}'.format(len(self.bridges))
+
+        bridge_commands = """\
+        ip link add {bridge_name} type bridge
+        ip link set {bridge_name} up
+        """
+        privileged_cmd(
+            bridge_commands, bridge_name=bridge_name
+        )
+
+        br_mode = subprocess.Popen(['echo', '16384'], stdout=subprocess.PIPE)
+        subprocess.check_output(
+            [
+                'sudo',
+                '--non-interactive',
+                'tee',
+                '/sys/class/net/{}/bridge/group_fwd_mask'.format(bridge_name)
+            ],
+            stdin=br_mode.stdout
+        )
+        br_mode.wait()
         # Create links between nodes:
         #   docs.docker.com/articles/networking/#building-a-point-to-point-connection # noqa
         commands = """\
-        ip link add {tmp_iface_a} type veth peer name {tmp_iface_b}
+        ip link add {tmp_iface_a} type veth peer name {tmp_iface_a_br}
+        ip link add {tmp_iface_b} type veth peer name {tmp_iface_b_br}
+        ip link set {tmp_iface_a_br} up
+        ip link set {tmp_iface_a_br} master {bridge_name}
+        ip link set {tmp_iface_b_br} up
+        ip link set {tmp_iface_b_br} master {bridge_name}
         ip link set {tmp_iface_a} netns {enode_a._pid}
         ip link set {tmp_iface_b} netns {enode_b._pid}
         ip netns exec {enode_a._pid} ip link set {tmp_iface_a} name {iface_a}
@@ -172,7 +203,10 @@ class DockerPlatform(BasePlatform):
         self.nmlbilink_nmlbiports_map[bilink.identifier] = (
             port_a.identifier, port_b.identifier
         )
-
+        self.bridges[bilink.identifier] = {
+            'bridge_name': bridge_name,
+            'iface': (tmp_iface_a_br, tmp_iface_b_br)
+        }
         # Apply some attributes
         for enode, port, iface in \
                 ((enode_a, port_a, iface_a), (enode_b, port_b, iface_b)):
@@ -269,22 +303,40 @@ class DockerPlatform(BasePlatform):
                         'Unable to pull docker logs: {}'.format(str(error))
                     )
 
+        # Remove bridges
+        for bridge in self.bridges.values():
+            try:
+                privileged_cmd('ip link set {} down'.format(
+                    bridge['bridge_name']
+                ))
+                privileged_cmd('ip link delete {} type bridge'.format(
+                    bridge['bridge_name']
+                ))
+            except:
+                log.error(format_exc())
+
     def rollback(self, stage, enodes, exception):
         """
         See :meth:`BasePlatform.rollback` for more information.
         """
         self.destroy()
 
-    def _common_link(self, link_id, action):
+    def _common_link(self, link_string, action):
         """
         Common action to relink / unlink.
 
-        :param str link_id: Identifier of the link to modify.
+        :param str link_string: Identifier of the link to modify.
         :param bool action: True if up, False if down.
         """
-        if link_id not in self.nmlbilink_nmlbiports_map:
-            raise Exception('Unknown link "{}"'.format(link_id))
+        link = tuple(
+            link_string.replace(' ', '').replace(':', '-').split('--')
+        )
+        if link not in self.nmlbilink_nmlbiports_map.values():
+            raise Exception('Unknown \link "{}"'.format(link))
 
+        link_id = list(
+            self.nmlbilink_nmlbiports_map.keys()
+        )[list(self.nmlbilink_nmlbiports_map.values()).index(link)]
         # iterate endpoints
         for port_id in self.nmlbilink_nmlbiports_map[link_id]:
 
@@ -294,18 +346,31 @@ class DockerPlatform(BasePlatform):
             # Get node for the owner of this port
             enode = self.nmlnode_node_map[port_spec['owner']]
             enode.set_port_state(port_spec['label'], action)
+            return link_id
 
-    def relink(self, link_id):
+    def relink(self, link_string):
         """
         See :meth:`BasePlatform.relink` for more information.
         """
-        self._common_link(link_id, True)
+        link_id = self._common_link(link_string, True)
+        bridge = self.bridges[link_id]['bridge_name']
+        links = self.bridges[link_id]['iface']
+        commands = ''' ip link set {} up
+        ip link set {} up
+        ip link set {} up
+        '''.format(bridge, links[0], links[1])
+        privileged_cmd(commands)
 
-    def unlink(self, link_id):
+    def unlink(self, link_string):
         """
         See :meth:`BasePlatform.unlink` for more information.
         """
-        self._common_link(link_id, False)
-
-
+        link_id = self._common_link(link_string, False)
+        bridge = self.bridges[link_id]['bridge_name']
+        links = self.bridges[link_id]['iface']
+        commands = ''' ip link set {} down
+        ip link set {}  down
+        ip link set {} down
+        '''.format(bridge, links[0], links[1])
+        privileged_cmd(commands)
 __all__ = ['DockerPlatform']
