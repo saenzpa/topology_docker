@@ -28,6 +28,18 @@ Changelog
 =========
 
 
+1.1.6 (2017-08-18)
+------------------
+
+New
+~~~
+- Configures shell delay to 1 second. [Javier Peralta]
+
+Other
+~~~~~
+- Merge pull request #15 from saenzpa/echo-delay. [Pablo Saenz]
+
+
 1.1.5 (2017-07-25)
 ------------------
 
@@ -500,5 +512,3 @@ Other
   Jenkins Perez]
 
   new: dev: Added a Toxin node for packet generation.
-
-
