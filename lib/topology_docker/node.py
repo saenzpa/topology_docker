@@ -94,7 +94,7 @@ class DockerNode(CommonNode):
     def __init__(
         self, identifier, image='ubuntu:latest', registry=None, command='bash',
         binds=None, network_mode='none', hostname=None, environment=None,
-        http_timeout=180, **kwargs
+        http_timeout=1, **kwargs
     ):
 
         super(DockerNode, self).__init__(identifier, **kwargs)
