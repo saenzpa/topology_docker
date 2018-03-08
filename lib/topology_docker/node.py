@@ -150,8 +150,7 @@ class DockerNode(CommonNode):
             name='{}_{}'.format(identifier, str(id(self))),
             detach=True,
             tty=True,
-            mem_limit='3840m', mem_reservation='3584m', cpu_period=100000,
-            cpu_quota=180000, cap_add=["sys_nice"],
+            mem_limit='3840m',
             hostname=self._hostname,
             host_config=self._host_config,
             environment=self._environment
