@@ -131,6 +131,8 @@ class DockerNode(CommonNode):
                 cap_add=['ALL'],
                 # Avoid connecting to host bridge, usually docker0
                 network_mode=network_mode,
+                mem_limit='3840m', cpu_period=100000,
+                cpu_quota=180000, cap_add=["sys_nice"],
                 binds=container_binds
             )
         else:
@@ -150,7 +152,6 @@ class DockerNode(CommonNode):
             name='{}_{}'.format(identifier, str(id(self))),
             detach=True,
             tty=True,
-            mem_limit='3840m',
             hostname=self._hostname,
             host_config=self._host_config,
             environment=self._environment
