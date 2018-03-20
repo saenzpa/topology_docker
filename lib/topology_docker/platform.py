@@ -57,6 +57,7 @@ class DockerPlatform(BasePlatform):
         self.nmlbilink_nmlbiports_map = OrderedDict()
         self.available_node_types = self.node_loader.load_nodes()
         self.bridges = {}
+        self.enivroment = nmlmanager.environment.metadata
 
         # Create netns folder
         privileged_cmd('mkdir -p /var/run/netns')
@@ -164,17 +165,22 @@ class DockerPlatform(BasePlatform):
             bridge_commands, bridge_name=bridge_name
         )
 
-        br_mode = subprocess.Popen(['echo', '16384'], stdout=subprocess.PIPE)
-        subprocess.check_output(
-            [
-                'sudo',
-                '--non-interactive',
-                'tee',
-                '/sys/class/net/{}/bridge/group_fwd_mask'.format(bridge_name)
-            ],
-            stdin=br_mode.stdout
-        )
-        br_mode.wait()
+        if self.environment.get('LLDP', False):
+            br_mode = subprocess.Popen(
+                ['echo', '16384'], stdout=subprocess.PIPE
+            )
+            subprocess.check_output(
+                [
+                    'sudo',
+                    '--non-interactive',
+                    'tee',
+                    '/sys/class/net/{}/bridge/group_fwd_mask'.format(
+                        bridge_name
+                    )
+                ],
+                stdin=br_mode.stdout
+            )
+            br_mode.wait()
         # Create links between nodes:
         #   docs.docker.com/articles/networking/#building-a-point-to-point-connection # noqa
         commands = """\
@@ -272,14 +278,14 @@ class DockerPlatform(BasePlatform):
         for enode in self.nmlnode_node_map.values():
             try:
                 enode.stop()
-            except:
+            except Exception:
                 log.error(format_exc())
 
         # Remove the linked netns
         for enode in self.nmlnode_node_map.values():
             try:
                 privileged_cmd('rm /var/run/netns/{pid}', pid=enode._pid)
-            except:
+            except Exception:
                 log.error(format_exc())
         from pytest import config
         log_dir_path = config.getoption('--topology-log-dir')
@@ -312,7 +318,7 @@ class DockerPlatform(BasePlatform):
                 privileged_cmd('ip link delete {} type bridge'.format(
                     bridge['bridge_name']
                 ))
-            except:
+            except Exception:
                 log.error(format_exc())
 
     def rollback(self, stage, enodes, exception):
@@ -373,4 +379,6 @@ class DockerPlatform(BasePlatform):
         ip link set {} down
         '''.format(bridge, links[0], links[1])
         privileged_cmd(commands)
+
+
 __all__ = ['DockerPlatform']
