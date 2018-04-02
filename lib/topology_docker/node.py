@@ -131,8 +131,6 @@ class DockerNode(CommonNode):
                 cap_add=['ALL'],
                 # Avoid connecting to host bridge, usually docker0
                 network_mode=network_mode,
-                mem_limit='5760m', cpu_period=100000,
-                cpu_quota=180000, 
                 binds=container_binds
             )
         else:
@@ -142,7 +140,7 @@ class DockerNode(CommonNode):
                 privileged=True,
                 # Avoid connecting to host bridge, usually docker0
                 network_mode=network_mode,
-                mem_limit='5760m', cpu_period=100000,
+                mem_limit='7680m', cpu_period=100000,
                 cpu_quota=180000, cap_add=["sys_nice"],
                 binds=container_binds
             )
