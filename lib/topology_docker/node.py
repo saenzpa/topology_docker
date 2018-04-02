@@ -128,7 +128,8 @@ class DockerNode(CommonNode):
             # Create host config
             self._host_config = self._client.create_host_config(
                 # Container is given access to all devices
-                cap_add=['ALL'],
+                cap_add=['ALL'], cpu_quota=180000,
+                mem_limit='7680m', cpu_period=100000,
                 # Avoid connecting to host bridge, usually docker0
                 network_mode=network_mode,
                 binds=container_binds
