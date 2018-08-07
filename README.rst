@@ -28,6 +28,20 @@ Changelog
 =========
 
 
+1.2.1 (2018-08-07)
+------------------
+
+Fix
+~~~
+- Fix issue when tag is None. [Jairo Andres Choque Mahecha]
+
+Other
+~~~~~
+- Merge pull request #20 from saenzpa/fix_docker_image. [Pablo Saenz]
+
+  fix: dev: Fix issue when tag is None
+
+
 1.2.0 (2017-09-18)
 ------------------
 
@@ -83,6 +97,21 @@ Other
 - Merge pull request #16 from saenzpa/set-bash. [Pablo Saenz]
 
   new: dev: Add a more intelligent method to set bash
+
+
+1.1.6 (2017-08-18)
+------------------
+
+New
+~~~
+- Configures shell delay to 1 second. [Javier Peralta]
+
+Changes
+~~~~~~~
+- Bumping version to 1.1.6. [Javier Peralta]
+
+Other
+~~~~~
 - Merge pull request #15 from saenzpa/echo-delay. [Pablo Saenz]
 
   new: dev: Configures shell delay to 1 second
